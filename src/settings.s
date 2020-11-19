@@ -16,18 +16,10 @@
 	# the following are debug messages
 	debugDone: .asciiz "DONE\n"
 	
-	# the following are for playerSprite vars
-	playerSpriteX: .word 30
-	playerSpriteY: .word 34
-	playerSpriteWidth: .word 6
-	playerSpriteHeight: .word 6
-	playerSpriteColorData: .space 144 # store 6*6*4 bytes of mem
-	
 .text
 
 	.globl displayAddress, gameMode, newline
 	.globl unitWidth, unitHeight, rowWidth, rowHeight
 	.globl leftKey, rightKey
 	.globl debugDone
-	.globl playerSpriteX, playerSpriteY, playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
 	

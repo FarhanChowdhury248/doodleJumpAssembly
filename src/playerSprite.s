@@ -1,8 +1,17 @@
+.data
+	# location vars
+	playerSpriteX: .word 30
+	playerSpriteY: .word 34
+	playerSpriteWidth: .word 6
+	playerSpriteHeight: .word 6
+	playerSpriteColorData: .space 144 # store 6*6*4 bytes of mem
 .text
 
 .globl playerSpriteInit, playerSpriteUpdate, playerSpriteDraw
+.globl playerSpriteX, playerSpriteY, playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
 
 playerSpriteInit:
+	jr $ra
 playerSpriteUpdate:
 	j playerSpriteDraw
 playerSpriteDraw:	
@@ -53,5 +62,5 @@ playerSpriteDraw:
 		addi $t7, $t7, -1
 		j WHILE1
 	LOOP1DONE:
-	j exit	# TODO: REMOVE
+	jr $s7
 	

@@ -1,29 +1,28 @@
 .data
 
+
+.text
 .globl playScreenRun, playScreenInit, playScreenEvents, playScreenUpdate, playScreenDraw
 
 playScreenRun:
-	jal playScreenInit
-	jal playScreenEvents
-	jal playScreenUpdate
-	j exit
+	j playScreenEvents
+	playScreenEventsDone:
+		j playScreenUpdate
+	playScreenUpdateDone:
+		j playScreenDraw
+	playScreenDrawDone:
+		j playScreenRun
 playScreenInit:
 	li $v0, 4
 	la $a0, debugDone
 	syscall
-	jr $ra
+	jal playerSpriteInit
+	j playScreenRun
 playScreenEvents:
-	li $v0, 4
-	la $a0, debugDone
-	syscall
-	jr $ra
+	j playScreenEventsDone
 playScreenUpdate:
-	li $v0, 4
-	la $a0, debugDone
-	syscall
-	jr $ra
+	j playScreenUpdateDone
 playScreenDraw:
-	li $v0, 4
-	la $a0, debugDone
-	syscall	
-	jr $ra
+	la $t1, playerSpriteDraw
+	jalr $s7, $t1
+	j playScreenDrawDone
