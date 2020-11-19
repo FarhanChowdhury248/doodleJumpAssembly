@@ -23,6 +23,6 @@ playScreenEvents:
 playScreenUpdate:
 	j playScreenUpdateDone
 playScreenDraw:
-	la $t1, playerSpriteDraw
-	jalr $s7, $t1
+	la $t1, playerSpriteDraw # srote addr in t1
+	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
 	j playScreenDrawDone

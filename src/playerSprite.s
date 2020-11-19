@@ -27,11 +27,7 @@ playerSpriteDraw:
 		LOOPINIT2:
 			lw $v1, playerSpriteWidth
 			addi $v1, $v1, -1
-		WHILE2:
-			li $v0, 4
-			la $a0, debugDone
-			syscall
-			
+		WHILE2:			
 			bltz $v1, LOOP2DONE
 			la $t0, playerSpriteColorData
 			lw $t1, playerSpriteX

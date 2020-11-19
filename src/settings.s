@@ -1,4 +1,5 @@
 .data
+	# the following are display settings
 	displayAddress:	.word	0x10008000
 	gameMode: .word 0 # 0 == startGame, 1 == playGame, 2 == endGame
 	newline: .asciiz "\n"
