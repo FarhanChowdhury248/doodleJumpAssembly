@@ -17,7 +17,9 @@ drawPixel:
 	mul $t1, $t1, $a0 # multiply x*4
 	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
 	sw $a2, 0($t0) # color
-	jr $ra	
+	jr $ra
+	
+generatePlatforms:		
 
 exit:
 	li $v0, 10 # terminate the program gracefully

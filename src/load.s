@@ -24,7 +24,6 @@ loadData:
 	
 	# load basicPlatformData
 	la $t0, basicPlatforms # load addr of basicPlatforms arr
-	sw $t0, basicPlatformsPointer # store it in the pointer
 	
 	la $t0, basicPlatformColorData # get addr of color data
 	li $v0, 176

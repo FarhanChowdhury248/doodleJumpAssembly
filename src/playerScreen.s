@@ -1,5 +1,5 @@
 .data
-
+	time: .word 0
 
 .text
 .globl playScreenRun, playScreenInit, playScreenEvents, playScreenUpdate, playScreenDraw
@@ -11,11 +11,18 @@ playScreenRun:
 	playScreenUpdateDone:
 		j playScreenDraw
 	playScreenDrawDone:
+		# sleep for 30ms
+		li $v0, 32
+		li $a0, 30
+		syscall
+		
 		j playScreenRun
+
 playScreenInit:
 	li $v0, 4
 	la $a0, debugDone
 	syscall
+	
 	# fill background
 	addi $t0, $zero, 4095 # store 64*64-1
 	lw $t2, displayAddress # get display addr
@@ -30,8 +37,13 @@ playScreenInit:
 		j loop1
 	loop1done:
 	
-	jal playerSpriteInit
-	j playScreenRun
+	# store time
+	li $v0, 30
+	syscall
+	sw $a0, time
+	
+	jal playerSpriteInit # init player sprite
+	j playScreenRun # run screen
 playScreenEvents:
 	j playScreenEventsDone
 playScreenUpdate:
@@ -40,4 +52,6 @@ playScreenDraw:
 	# draw player sprite		
 	la $t1, playerSpriteDraw # srote addr in t1
 	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
+	la $t1, basicPlatformDraw
+	jalr $s7, $t1
 	j playScreenDrawDone
