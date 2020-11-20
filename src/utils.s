@@ -5,7 +5,8 @@
 .globl drawPixel, exit
 
 drawPixel:
-	# assume $s0-2 stores x, y, and color respectively
+	# assume $a0-2 stores x, y, and color respectively
+	# uses t0-1
 	lw $t1, rowWidth # get rowWidth
 	mul $t1, $t1, $a1 # multiply rowWidth*y
 	li $t0, 4 # store 4
