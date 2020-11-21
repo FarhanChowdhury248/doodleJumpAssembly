@@ -11,7 +11,7 @@
 .globl basicPlatformInit, basicPlatformUpdate, basicPlatformDraw
 
 basicPlatformInit:
-	#jr $ra
+	jr $ra
 basicPlatformUpdate:
 basicPlatformDraw:
 	la $s0, basicPlatforms # get pointer to arr

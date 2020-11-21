@@ -37,6 +37,9 @@ playScreenInit:
 		j loop1
 	loop1done:
 	
+	# add initial platforms
+	
+	
 	# store time
 	li $v0, 30
 	syscall
