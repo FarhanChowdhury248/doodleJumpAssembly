@@ -38,6 +38,23 @@ playScreenInit:
 	loop1done:
 	
 	# add initial platforms
+	la $t0, basicPlatforms
+	li $t1, 30
+	li $t2, 45
+	sw $t1, 0($t0)
+	sw $t2, 4($t0) # add a platform at (30, 45)
+	li $t1, 60
+	li $t2, 4
+	sw $t2, 8($t0)
+	sw $t1, 12($t0) # add a platform at (4, 60)
+	li $t1, 20
+	li $t2, 4
+	sw $t2, 16($t0)
+	sw $t1, 20($t0) # add a platform at (4, 20)
+	li $t1, 10
+	li $t2, 55
+	sw $t2, 24($t0)
+	sw $t1, 28($t0) # add a platform at (55, 10)
 	
 	
 	# store time
@@ -55,6 +72,11 @@ playScreenDraw:
 	# draw player sprite		
 	la $t1, playerSpriteDraw # srote addr in t1
 	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
+	
 	la $t1, basicPlatformDraw
 	jalr $s7, $t1
+	
+	la $t1, generatePlatforms
+	jalr $s7, $t1
+	
 	j playScreenDrawDone

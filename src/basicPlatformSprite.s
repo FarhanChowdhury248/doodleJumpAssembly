@@ -17,13 +17,13 @@ basicPlatformDraw:
 	la $s0, basicPlatforms # get pointer to arr
 	la $s1, basicPlatformColorData # get color data
 	
-	li $s2, 20 # store count
+	li $s2, 20 # store count  **********
 	move $v0, $s0
 	loop3:
 		li $t2, 2 # yOffset starts at 2
 		addi $v1, $v0, 4 # v1 is addr to ogY
-		lw $t4, 0($v0) # t4 stores xOffset
-		lw $t5, 0($v1) # t5 stores yOffset
+		lw $t4, 0($v0) # t4 stores xLoc
+		lw $t5, 0($v1) # t5 stores yLoc
 		beqz $t4, XIsZero # v0 is addr to ogX
 		j loop4
 		XIsZero:
@@ -31,16 +31,15 @@ basicPlatformDraw:
 		loop4:
 			li $t3, 14 # xOffset starts at 14
 			loop5:
+			
 				# calculate x = ogX + xOffset, y = ogY + yOffset
-				
-				
 				add $a0, $t4, $t3 # store ogX + xOffset in a0
 				add $a1, $t5, $t2 # store ogY + yOffset in a1
 				
 				# calculate index and get next color info
-				add $t6, $zero, $t4 # store xOffset
+				add $t6, $zero, $t3 # store xOffset
 				li $t7, 15
-				mul $t7, $t7, $t5 # t7 = 15*yOffset
+				mul $t7, $t7, $t2 # t7 = 15*yOffset
 				add $t6, $t6, $t7 # store xOffset + 15*yOffset
 				li $t7, 4
 				mul $t6, $t6, $t7 # store (xOffset + 15*yOffset)*4

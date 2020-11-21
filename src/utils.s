@@ -2,7 +2,7 @@
 
 .text
 
-.globl drawPixel, exit
+.globl drawPixel, getNextPoint, generatePlatforms, exit
 
 j generatePlatforms
 
@@ -84,6 +84,7 @@ generatePlatforms:
 		beqz $t2, loop6done
 		j loop6
 	loop6done:
+	jr $s7
 
 exit:
 	li $v0, 10 # terminate the program gracefully
