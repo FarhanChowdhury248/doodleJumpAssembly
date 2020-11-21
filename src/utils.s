@@ -10,6 +10,21 @@ drawPixel:
 	# assume $a0-2 stores x, y, and color respectively
 	# uses t0-1
 	# returns None
+	
+	# horizontal wrapping
+	lw $t0, rowWidth # get width
+	bge $a0, $t0, wrapG
+	j wrapGDone
+	wrapG:
+		sub $a0, $a0, $t0 # do x = x - width
+	wrapGDone:
+	bltz $a0, wrapL
+	j wrapLDone
+	wrapL:
+		add $a0, $a0, $t0 # do x = x + width
+	wrapLDone:
+	
+	# do coloring
 	lw $t1, rowWidth # get rowWidth
 	mul $t1, $t1, $a1 # multiply rowWidth*y
 	li $t0, 4 # store 4
