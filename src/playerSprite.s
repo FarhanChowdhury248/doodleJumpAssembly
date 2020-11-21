@@ -2,18 +2,44 @@
 	# location vars
 	playerSpriteX: .word 30
 	playerSpriteY: .word 34
+	# property vars
 	playerSpriteWidth: .word 6
 	playerSpriteHeight: .word 6
 	playerSpriteColorData: .space 144 # store 6*6*4 bytes of mem
+	# physics vars
+	playerSpriteVelX: .word 0
+	playerSpriteVelY: .word 0
+	playerSpriteAccX: .word 0
+	playerSpriteAccY: .word 0
 .text
 
-.globl playerSpriteInit, playerSpriteUpdate, playerSpriteDraw
-.globl playerSpriteX, playerSpriteY, playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
+.globl playerSpriteInit, playerSpriteUpdate, playerSpriteDraw, playerSpriteClear
+.globl playerSpriteX, playerSpriteY
+.globl playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
+.globl playerSpriteVelX, playerSpriteVelY, playerSpriteAccX, playerSpriteAccY
 
 playerSpriteInit:
 	jr $ra
 playerSpriteUpdate:
-playerSpriteDraw:	
+	# do physics for Y
+	lw $t0, gravity # get gravity
+	lw $t1, playerSpriteAccY
+	add $t1, $t1, $t0 # t1 = ogAccY + gravity
+	lw $t0, playerSpriteVelY # get velocity
+	add $t0, $t0, $t1 # t0 = ogVelY + accY
+	lw $t1, playerSpriteY
+	add $t1, $t1, $t0 # t1 = ogPosY + velY
+	sw $t1, playerSpriteY # store posY
+	
+	# do physics for X
+	lw $t0, playerSpriteVelX # get velocity
+	lw $t1, playerSpriteX # get ogPosX
+	add $t1, $t0, $t1 # t1 = ogPosX + velX
+	sw $t1, playerSpriteX # store posX
+	
+	jr $s7
+
+playerSpriteClear:
 	lw $t1, playerSpriteX
 	lw $t2, playerSpriteY
 	lw $t3, playerSpriteWidth
@@ -49,6 +75,13 @@ playerSpriteDraw:
 		addi $t7, $t7, -1
 		j WHILE3
 	LOOP3DONE:
+	jr $s7
+	
+playerSpriteDraw:	
+	lw $t1, playerSpriteX
+	lw $t2, playerSpriteY
+	lw $t3, playerSpriteWidth
+	lw $t4, playerSpriteHeight
 	
 	LOOPINIT1:
 		lw $t7, playerSpriteHeight
