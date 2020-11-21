@@ -13,12 +13,43 @@
 playerSpriteInit:
 	jr $ra
 playerSpriteUpdate:
-	j playerSpriteDraw
 playerSpriteDraw:	
 	lw $t1, playerSpriteX
 	lw $t2, playerSpriteY
 	lw $t3, playerSpriteWidth
 	lw $t4, playerSpriteHeight
+	
+	# loop to clear previous drawing
+	LOOPINIT3:
+		lw $t7, playerSpriteHeight
+		addi $t7, $t7, -1
+		# store bgColor
+		lw $a2, bgColor # a2 = bgColor
+	WHILE3:
+		bltz $t7, LOOP3DONE
+		LOOPINIT4:
+			lw $v1, playerSpriteWidth
+			addi $v1, $v1, -1
+		WHILE4:			
+			bltz $v1, LOOP4DONE
+			lw $t1, playerSpriteX
+			
+			# calculate x,y
+			move $s0, $t1 # s0 = playerX
+			add $a0, $s0, $v1 # a0 = playerX + xOffset
+			move $s1, $t2 # s1 = playerY
+			add $a1, $s1, $t7 # a1 = playerY + yOffset
+			
+			# draw pixel
+			jal drawPixel
+			
+			addi $v1, $v1, -1
+			j WHILE4
+		LOOP4DONE:
+		addi $t7, $t7, -1
+		j WHILE3
+	LOOP3DONE:
+	
 	LOOPINIT1:
 		lw $t7, playerSpriteHeight
 		addi $t7, $t7, -1
