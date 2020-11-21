@@ -10,6 +10,7 @@
 	
 	# the following are game settings
 	bgColor: .word 0x1390C1
+	gravity: .word 0
 	
 	# the following are 'boolean' values to keep track of what keys have been pressed
 	leftKey: .word 0
@@ -21,7 +22,7 @@
 .text
 
 	.globl displayAddress, gameMode, newline, unitWidth, unitHeight, rowWidth, rowHeight
-	.globl bgColor
+	.globl bgColor, gravity
 	.globl leftKey, rightKey
 	.globl debugDone
 	
