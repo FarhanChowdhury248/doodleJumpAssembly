@@ -78,7 +78,7 @@ playScreenEvents:
 		beq $t1, 0x6a, jFound
 		j jDone
 		jFound:
-			li $t0, -1 # player vel mag is 5 *********
+			li $t0, -5 # player vel mag is 5 *********
 			sw $t0, playerSpriteVelX # set player vel to -5
 			j playScreenEventsDone
 		jDone:
@@ -86,7 +86,7 @@ playScreenEvents:
 		beq $t1, 0x6b, kFound
 		j kDone
 		kFound:
-			li $t0, 1 # player vel mag is 5 *********
+			li $t0, 5 # player vel mag is 5 *********
 			sw $t0, playerSpriteVelX # set player vel to 5
 			j playScreenEventsDone
 		kDone:
