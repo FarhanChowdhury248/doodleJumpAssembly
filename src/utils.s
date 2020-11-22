@@ -16,12 +16,12 @@ drawPixel:
 	bge $a0, $t0, wrapG
 	j wrapGDone
 	wrapG:
-		sub $a0, $a0, $t0 # do x = x - width
+		jr $ra
 	wrapGDone:
 	bltz $a0, wrapL
 	j wrapLDone
 	wrapL:
-		add $a0, $a0, $t0 # do x = x + width
+		jr $ra
 	wrapLDone:
 	
 	# do coloring

@@ -19,6 +19,14 @@
 .globl playerSpriteVelX, playerSpriteVelY, playerSpriteAccX, playerSpriteAccY
 
 playerSpriteInit:
+	li $v0, 30
+	sw $v0, playerSpriteX
+	li $v0, 34
+	sw $v0, playerSpriteY
+	sw $zero, playerSpriteVelX
+	sw $zero, playerSpriteVelY
+	sw $zero, playerSpriteAccX
+	sw $zero, playerSpriteAccY
 	jr $ra
 playerSpriteUpdate:
 	# check collisions with platforms
@@ -44,6 +52,7 @@ playerSpriteUpdate:
 		or $v0, $v0, $t6 # if (platformX + platformWidth - platformX) < 0m make v0 < 0
 		
 		lw $t2, 4($t0) # get platformY
+		lw $t3, basicPlatformHeight # get platformHeight
 		lw $t4, playerSpriteHeight # get playerHeight
 		lw $t5, playerSpriteY # get playerY
 		add $t3, $t5, $t4, # playerY + playerHeight
@@ -62,7 +71,7 @@ playerSpriteUpdate:
 	loop8done:
 	endOfCollisionCheckPositive:
 		lw $t0, playerSpriteAccY
-		addi $t0, $t0, -25 # make player acc -5 *********
+		addi $t0, $t0, -35 # make player acc -5 *********
 		sw $t0, playerSpriteAccY
 	endOfCollisionCheck:
 	
@@ -70,21 +79,37 @@ playerSpriteUpdate:
 	lw $t0, gravity # get gravity
 	lw $t1, playerSpriteAccY
 	add $t1, $t1, $t0 # t1 = ogAccY + gravity
+	sw $t1, playerSpriteAccY
 	lw $t0, playerSpriteVelY # get velocity
 	add $t0, $t0, $t1 # t0 = ogVelY + accY
 	lw $t1, playerSpriteY
 	add $t1, $t1, $t0 # t1 = ogPosY + velY
-	sw $t1, playerSpriteY # store posY
+	move $a1, $t1 # store posY in a1
 	
 	# do physics for X
 	lw $t0, playerSpriteVelX # get velocity
 	lw $t1, playerSpriteX # get ogPosX
 	add $t1, $t0, $t1 # t1 = ogPosX + velX
-	sw $t1, playerSpriteX # store posX
+	move $a0, $t1 # store posX in a0
+	
+	# horizontal wrapping
+	lw $t0, rowWidth # get width
+	bge $a0, $t0, pwrapG
+	j pwrapGDone
+	pwrapG:
+		sub $a0, $a0, $t0 # do x = x - width
+	pwrapGDone:
+	bltz $a0, pwrapL
+	j pwrapLDone
+	pwrapL:
+		add $a0, $a0, $t0 # do x = x + width
+	pwrapLDone:
+	sw $a0, playerSpriteX # store posX
+	sw $a1, playerSpriteY # store posY
 	
 	# reset acc to 0
-	sw $zero, playerSpriteAccY
-	sw $zero, playerSpriteAccX
+	#sw $zero, playerSpriteAccY
+	#sw $zero, playerSpriteAccX
 	
 	jr $s7
 
