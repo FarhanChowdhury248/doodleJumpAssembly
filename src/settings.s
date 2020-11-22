@@ -10,7 +10,7 @@
 	
 	# the following are game settings
 	bgColor: .word 0x1390C1
-	gravity: .word 0
+	gravity: .word 1
 	
 	# the following are 'boolean' values to keep track of what keys have been pressed
 	leftKey: .word 0
@@ -18,11 +18,12 @@
 	
 	# the following are debug messages
 	debugDone: .asciiz "DONE\n"
+	debugCollide: .asciiz "Collided\n"
 	
 .text
 
 	.globl displayAddress, gameMode, newline, unitWidth, unitHeight, rowWidth, rowHeight
 	.globl bgColor, gravity
 	.globl leftKey, rightKey
-	.globl debugDone
+	.globl debugDone, debugCollide
 	

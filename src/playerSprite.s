@@ -21,6 +21,51 @@
 playerSpriteInit:
 	jr $ra
 playerSpriteUpdate:
+	# check collisions with platforms
+	lw $t0, playerSpriteVelY
+	bltz $t0, endOfCollisionCheck # don't collide if going upwward
+	
+	la $t0, basicPlatforms
+	li $t1, 20 # store count *********
+	loop8:
+		li $v0, 0 # store result
+		
+		lw $t2, 0($t0) # get platformX
+		lw $t3, basicPlatformWidth # get platformWidth
+		lw $t4, playerSpriteWidth # get playerWidth
+		lw $t5, playerSpriteX # get playerX
+		add $t6, $t5, $t4 # playerX + playerWidth
+		sub $t6, $t6, $t2 # playerX + playerWidth - platformX
+		addi $t6, $t6, -1
+		or $v0, $v0, $t6 # if (playerX + playerWidth - platformX) < 0, make v0 < 0
+		add $t6, $t2, $t3 # platformX + platformWidth
+		sub $t6, $t6, $t5 # platformX + platformWidth - platformX
+		addi $t6, $t6, -1
+		or $v0, $v0, $t6 # if (platformX + platformWidth - platformX) < 0m make v0 < 0
+		
+		lw $t2, 4($t0) # get platformY
+		lw $t4, playerSpriteHeight # get playerHeight
+		lw $t5, playerSpriteY # get playerY
+		add $t3, $t5, $t4, # playerY + playerHeight
+		sub $t3, $t3, $t2 # playerY + playerHeight - platformY
+		
+		beqz $t3, yHits
+		j yHitsDone
+		yHits:
+			bgez $v0, endOfCollisionCheckPositive
+		yHitsDone:
+		
+		addi $t0, $t0, 8 # get next point
+		addi $t1, $t1, -1 # decrement count
+		beqz $t1, endOfCollisionCheck
+		j loop8
+	loop8done:
+	endOfCollisionCheckPositive:
+		lw $t0, playerSpriteAccY
+		addi $t0, $t0, -25 # make player acc -5 *********
+		sw $t0, playerSpriteAccY
+	endOfCollisionCheck:
+	
 	# do physics for Y
 	lw $t0, gravity # get gravity
 	lw $t1, playerSpriteAccY
@@ -36,6 +81,10 @@ playerSpriteUpdate:
 	lw $t1, playerSpriteX # get ogPosX
 	add $t1, $t0, $t1 # t1 = ogPosX + velX
 	sw $t1, playerSpriteX # store posX
+	
+	# reset acc to 0
+	sw $zero, playerSpriteAccY
+	sw $zero, playerSpriteAccX
 	
 	jr $s7
 
