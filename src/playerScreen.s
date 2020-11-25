@@ -63,6 +63,9 @@ playScreenInit:
 	syscall
 	sw $a0, time
 	
+	# reset camera offset
+	sw $zero, cameraOffset
+	
 	jal playerSpriteInit # init player sprite
 	j playScreenRun # run screen
 playScreenEvents:
@@ -106,6 +109,8 @@ playScreenUpdate:
 	jalr $s7, $t1
 	la $t1, playerSpriteUpdate
 	jalr $s7, $t1
+	la $t1, basicPlatformUpdate
+	jalr $s7, $t1
 	j playScreenUpdateDone
 
 playScreenDraw:
@@ -114,9 +119,6 @@ playScreenDraw:
 	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
 	
 	la $t1, basicPlatformDraw
-	jalr $s7, $t1
-	
-	la $t1, generatePlatforms
 	jalr $s7, $t1
 	
 	j playScreenDrawDone

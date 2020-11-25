@@ -13,6 +13,45 @@
 basicPlatformInit:
 	jr $ra
 basicPlatformUpdate:
+	la $s0, basicPlatforms # get pointer to arr
+	la $s1, basicPlatformColorData # get color data
+	lw $t1, cameraOffset
+	lw $t2, rowHeight
+	
+	li $s2, 20 # store count  **********
+	move $t4, $s0
+	loop12:
+		lw $t6, 0($t4) # get platformX
+		lw $t0, 4($t4) # get platformY
+		beqz $t6, XIsZero3 # v0 is addr to ogX
+		j XIsNotZero3
+		XIsZero3:
+			beqz $t0, loop12Done
+		XIsNotZero3:
+		add $t3, $t0, $t1 # t3 = platformY + cameraOffset
+		sub $t3, $t3, $t2 # t3 = platformY + cameraOffset - screenHeight
+		bltz $t3, resetDone
+		reset:
+			# assign newY
+			li $t3, -3
+			sub $t3, $t3, $t1 # newY = -3 - screenHeight
+			sw $t3, 4($t4) # reset y to newY
+			
+			# get random value for newX
+			li $v0, 42
+			lw $a1, rowWidth # max is rowWidth
+			syscall
+			
+			# assign newX
+			sw $a0, 0($t4)
+		resetDone:
+		
+		
+		addi $s2, $s2, -1 # decrement count
+		addi $t4, $t4, 8 # increase pointer
+		bgtz $s2, loop12 # if count > 0, repeat loop
+	loop12Done:
+	jr $s7
 basicPlatformClear:
 	la $s0, basicPlatforms # get pointer to arr
 	la $s1, basicPlatformColorData # get color data

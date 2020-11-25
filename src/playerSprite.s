@@ -100,7 +100,7 @@ playerSpriteUpdate:
 		la $a0, debugHit
 		syscall
 		lw $t0, playerSpriteAccY
-		addi $t0, $zero, -13000 # make player acc -5 *********
+		addi $t0, $zero, -9000 # make player acc -5 *********
 		sw $t0, playerSpriteAccY
 	endOfCollisionCheck:
 	
@@ -155,6 +155,8 @@ playerSpriteUpdate:
 	add $t0, $t0, $t1 # t0 now is bottom of sprite
 	lw $t1, rowHeight # get screen height
 	sub $t0, $t0, $t1 # playerY - screenHeight
+	lw $t1, cameraOffset
+	add $t0, $t0, $t1 # playerY - screenHeight + cameraOffset
 	bgtz $t0, gameOver
 	j gameOverDone
 	gameOver:

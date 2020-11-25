@@ -64,45 +64,6 @@ getNextPoint:
 	jr $ra
 	
 generatePlatforms:
-	la $t0, basicPlatforms # get addr of start of arr
-	addi $t1, $t0, 160 # mark the end of the arr   ************
-	move $a0, $t0 # store valid addr in t0
-	jal getNextPoint # v0 stores valid point, v1 == 0 if point unavailable
-	beqz, $v1, loop6done # terminate if no valid point available
-	move $t0, $v0 # move it to t0
-	lw $t2, rowHeight # get height of display
-	li $t3, -1
-	mul $t2, $t2, $t3 # start at -rowHeight
-	loop6:
-		beqz $t2, loop6done
-		lw $t3, rowWidth # start x at rowWidth
-		loop7:
-			beqz $t3, loop7done # terminate if rowWidth == 0
-			addi $t3, $t3, -1 # decrement rowWidth to get true addr
-			
-			# get random number x s.t. 0 <= x < 1024		
-			li $v0, 42
-			li $a0, 0
-			li $a1, 1024
-			syscall # random int in $a0
-			bnez $a0, noAdd # do not add 1023/1024 times, add 1/1024 times
-			
-			# if adding...
-			sw $t3, 0($t0) # store x
-			sw $t2, 1($t0) # store y
-			move $a0, $t0
-			jal getNextPoint # get next valid point
-			beqz, $v1, loop6done # terminate if no valid point available
-			move $t0, $a0 # store next valid point
-			
-			noAdd:
-			j loop7
-			
-		loop7done:
-		addi $t2, $t2, -1
-		beqz $t2, loop6done
-		j loop6
-	loop6done:
 	jr $s7
 
 exit:
