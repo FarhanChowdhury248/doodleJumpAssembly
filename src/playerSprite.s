@@ -50,6 +50,7 @@ playerSpriteUpdate:
 		# check vel
 		lw $t2, playerSpriteVelY
 		or $v0, $v0, $t2 # if playerVelY < 0, make v0 < 0
+		sw $zero, playerSpriteVelY
 		
 		# check horizontal
 		lw $t2, 0($t0) # get platformX
@@ -81,14 +82,7 @@ playerSpriteUpdate:
 		sub $t6, $t6, $t2 # if playerY + playerHeight - platformY < 0 == playerY + playerHeight < platformY, make v0 < 0
 		or $v0, $v0, $t6
 		
-		#add $t3, $t5, $t4, # playerY + playerHeight
-		#sub $t3, $t3, $t2 # playerY + playerHeight - platformY
-		
-		#beqz $t3, yHits
-		#j yHitsDone
-		#yHits:
-			bgtz $v0, endOfCollisionCheckPositive
-		#yHitsDone:
+		bgtz $v0, endOfCollisionCheckPositive
 		
 		addi $t0, $t0, 8 # get next point
 		addi $t1, $t1, -1 # decrement count
@@ -100,7 +94,7 @@ playerSpriteUpdate:
 		la $a0, debugHit
 		syscall
 		lw $t0, playerSpriteAccY
-		addi $t0, $zero, -9000 # make player acc -5 *********
+		addi $t0, $zero, -900 # make player acc -5 *********
 		sw $t0, playerSpriteAccY
 	endOfCollisionCheck:
 	
@@ -110,7 +104,8 @@ playerSpriteUpdate:
 	add $t1, $t1, $t0 # t1 = ogAccY + gravity
 	sw $t1, playerSpriteAccY
 	lw $t0, playerSpriteVelY # get velocity
-	add $t0, $t0, $t1 # t0 = ogVelY + accY
+	add $t0, $t0, $t1 # t0 = ogVelY + accY  ### check for terminal velocity
+	sw $t0, playerSpriteVelY
 	lw $t1, playerSpriteY
 	add $t1, $t1, $t0 # t1 = ogPosY + velY
 	move $a1, $t1 # store posY in a1
@@ -163,6 +158,7 @@ playerSpriteUpdate:
 		li $v0, 4
 		la $a0, debugGameOver
 		syscall
+		j playScreenInit
 	gameOverDone:
 	
 	jr $s7

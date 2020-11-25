@@ -10,7 +10,7 @@
 	
 	# the following are game settings
 	bgColor: .word 0x1390C1
-	gravity: .word 1000
+	gravity: .word 100
 	
 	# the following are 'boolean' values to keep track of what keys have been pressed
 	leftKey: .word 0

@@ -71,7 +71,6 @@ playScreenInit:
 playScreenEvents:
 	# reset playerSprite physics vars
 	sw $zero, playerSpriteVelX
-	#sw $zero, playerSpriteAccY
 	
 	# get keystroke event
 	lw $t0, 0xffff0000
