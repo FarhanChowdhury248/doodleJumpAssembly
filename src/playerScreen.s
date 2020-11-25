@@ -1,7 +1,9 @@
 .data
 	time: .word 0
+	cameraOffset: .word 0
 
 .text
+.globl time, cameraOffset
 .globl playScreenRun, playScreenInit, playScreenEvents, playScreenUpdate, playScreenDraw
 
 playScreenRun:
@@ -61,12 +63,14 @@ playScreenInit:
 	syscall
 	sw $a0, time
 	
+	# reset camera offset
+	sw $zero, cameraOffset
+	
 	jal playerSpriteInit # init player sprite
 	j playScreenRun # run screen
 playScreenEvents:
 	# reset playerSprite physics vars
 	sw $zero, playerSpriteVelX
-	sw $zero, playerSpriteAccY
 	
 	# get keystroke event
 	lw $t0, 0xffff0000
@@ -98,9 +102,13 @@ playScreenEvents:
 		sDone:
 
 playScreenUpdate:
+	la $t1, basicPlatformClear
+	jalr $s7, $t1
 	la $t1, playerSpriteClear
 	jalr $s7, $t1
 	la $t1, playerSpriteUpdate
+	jalr $s7, $t1
+	la $t1, basicPlatformUpdate
 	jalr $s7, $t1
 	j playScreenUpdateDone
 
@@ -110,9 +118,6 @@ playScreenDraw:
 	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
 	
 	la $t1, basicPlatformDraw
-	jalr $s7, $t1
-	
-	la $t1, generatePlatforms
 	jalr $s7, $t1
 	
 	j playScreenDrawDone
