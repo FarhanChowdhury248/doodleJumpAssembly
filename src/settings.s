@@ -9,8 +9,8 @@
 	rowHeight: .word 64
 	
 	# the following are game settings
-	bgColor: .word 0x1390C1
-	gravity: .word 1000
+	bgColor: .word 0xE4F9F5			#1390C1
+	gravity: .word 100
 	
 	# the following are 'boolean' values to keep track of what keys have been pressed
 	leftKey: .word 0
@@ -18,14 +18,15 @@
 	
 	# the following are debug messages
 	debugDone: .asciiz "DONE\n"
-	debugCollide: .asciiz "Collided\n"
 	debugGameOver: .asciiz "Game Over\n"
+	debugCollide: .asciiz "collided\n"
 	debugHit: .asciiz "hit\n"
+	debugMilestone: .asciiz "Milestone Reached!\n"
 	
 .text
 
 	.globl displayAddress, gameMode, newline, unitWidth, unitHeight, rowWidth, rowHeight
 	.globl bgColor, gravity
 	.globl leftKey, rightKey
-	.globl debugDone, debugCollide, debugGameOver, debugHit
+	.globl debugDone, debugGameOver, debugHit, debugMilestone#, debugCollide
 	

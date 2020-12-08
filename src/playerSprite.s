@@ -11,12 +11,13 @@
 	playerSpriteVelY: .word 0
 	playerSpriteAccX: .word 0
 	playerSpriteAccY: .word 0
+	playerSpriteJump: .word -900
 .text
 
 .globl playerSpriteInit, playerSpriteUpdate, playerSpriteDraw, playerSpriteClear
 .globl playerSpriteX, playerSpriteY
 .globl playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
-.globl playerSpriteVelX, playerSpriteVelY, playerSpriteAccX, playerSpriteAccY
+.globl playerSpriteVelX, playerSpriteVelY, playerSpriteAccX, playerSpriteAccY, playerSpriteJump
 
 playerSpriteInit:
 	li $v0, 30
@@ -27,6 +28,8 @@ playerSpriteInit:
 	sw $zero, playerSpriteVelY
 	sw $zero, playerSpriteAccX
 	sw $zero, playerSpriteAccY
+	li $v0, -900
+	sw $v0, playerSpriteJump
 	jr $ra
 playerSpriteUpdate:
 	# check collisions with platforms
@@ -36,6 +39,13 @@ playerSpriteUpdate:
 	la $t0, basicPlatforms
 	li $t1, 20 # store count *********
 	loop8:
+		lw $t2, 0($t0) # get platformX
+		lw $t3, 4($t0) # get platformY
+		beqz $t2, XIsZero4 # v0 is addr to ogX
+		j XIsNotZero4
+		XIsZero4:
+			beqz $t3, endOfCollisionCheck
+		XIsNotZero4:
 		# if (playerVel < 0 && 
 		#     playerX + playerWidth > platformX && playerX < platformX + platformWidth &&
 		#     playerY < platformY && playerY + playerHeight > platformY) 
@@ -50,6 +60,7 @@ playerSpriteUpdate:
 		# check vel
 		lw $t2, playerSpriteVelY
 		or $v0, $v0, $t2 # if playerVelY < 0, make v0 < 0
+		sw $zero, playerSpriteVelY
 		
 		# check horizontal
 		lw $t2, 0($t0) # get platformX
@@ -81,14 +92,7 @@ playerSpriteUpdate:
 		sub $t6, $t6, $t2 # if playerY + playerHeight - platformY < 0 == playerY + playerHeight < platformY, make v0 < 0
 		or $v0, $v0, $t6
 		
-		#add $t3, $t5, $t4, # playerY + playerHeight
-		#sub $t3, $t3, $t2 # playerY + playerHeight - platformY
-		
-		#beqz $t3, yHits
-		#j yHitsDone
-		#yHits:
-			bgtz $v0, endOfCollisionCheckPositive
-		#yHitsDone:
+		bgtz $v0, endOfCollisionCheckPositive
 		
 		addi $t0, $t0, 8 # get next point
 		addi $t1, $t1, -1 # decrement count
@@ -96,12 +100,17 @@ playerSpriteUpdate:
 		j loop8
 	loop8done:
 	endOfCollisionCheckPositive:
-		li $v0, 4
-		la $a0, debugHit
-		syscall
 		lw $t0, playerSpriteAccY
-		addi $t0, $zero, -9000 # make player acc -5 *********
+		lw $t1, playerSpriteJump
+		add $t0, $zero, $t1 # make player acc -5 *********
 		sw $t0, playerSpriteAccY
+		
+		li $v0, 31
+		li $a0, 70 # pitch
+		li $a1, 750 # milliseconds duration
+		li $a2, 120 # instrument
+		li $a3, 100 # volume
+		syscall
 	endOfCollisionCheck:
 	
 	# do physics for Y
@@ -110,7 +119,8 @@ playerSpriteUpdate:
 	add $t1, $t1, $t0 # t1 = ogAccY + gravity
 	sw $t1, playerSpriteAccY
 	lw $t0, playerSpriteVelY # get velocity
-	add $t0, $t0, $t1 # t0 = ogVelY + accY
+	add $t0, $t0, $t1 # t0 = ogVelY + accY  ### check for terminal velocity
+	sw $t0, playerSpriteVelY
 	lw $t1, playerSpriteY
 	add $t1, $t1, $t0 # t1 = ogPosY + velY
 	move $a1, $t1 # store posY in a1
@@ -160,9 +170,12 @@ playerSpriteUpdate:
 	bgtz $t0, gameOver
 	j gameOverDone
 	gameOver:
-		li $v0, 4
-		la $a0, debugGameOver
+		# sleep for 500ms
+		li $v0, 32
+		li $a0, 100
 		syscall
+			
+		j gameOverScreenInit
 	gameOverDone:
 	
 	jr $s7

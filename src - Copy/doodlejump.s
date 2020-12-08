@@ -1,8 +1,1446 @@
-.data
+#####################################################################
+#
+# CSCB58 Fall 2020 Assembly Final Project
+# University of Toronto, Scarborough
+#
+# Student: Farhan Chowdhury, 1006068176
+#
+# Bitmap Display Configuration:
+# - Unit width in pixels: 8					     
+# - Unit height in pixels: 8
+# - Display width in pixels: 512
+# - Display height in pixels: 512
+# - Base Address for Display: 0x10008000 ($gp)
+#
+# Which milestone is reached in this submission?
+# - Milestones 1, 2, 3 completed
+# - Milestone 4.a: Scoreboard is continuously updating with score which increases the "higher" doodler goes
+# - Milestone 4.c: After achieving a score milestone, the speed of the doodler increases
+#		   The first milestone is at 300, after hitting a milestone x, new milestone f(x) is calculated by:
+#			f(x) = 2*x + y, where -100 < y < 100 (randomly chosen for variability)
+# - Milestone 5.a: Realistic physics is implemented
+# - Milestone 5.d: Fancier graphics implemented with custom sprites for platforms and doodler
+#		   The Game features 4 screens:
+#			- game starts with a title screen that features game title and instructions
+#			- the play screen features the core game elements
+#			- a pause screen is toggled by pressing 'p' during the play screen
+#			- a game over screen is invoked when doodler falls off
+# - Milestone 5.e: Dynamic on-screen notifications appear when doodler hits score milestone (described above)
+#		   The text and location for the notifications is randomly chosen each time
+#
+# Which approved additional features have been implemented?
+# Sounds are played whenever:
+#	- game starts
+#	- doodler hits platform
+#	- score milestone is reached
+#	- doodler falls
+# ***Implemented milestones in previous section are also decorated beyond handout expectations
+#
+# Link to video demonstration for final submission:
+# - https://youtu.be/Gx5XfdIwPgc
+# - VIDEO IS GLITCHER THAN GAME. Please note that the screen recording may make the game look more glitchy than normal.
+#
+# Any additional information that the TA needs to know:
+# - Hope you enjoy the game! :)
+#
+#####################################################################
 
+.data
+	time: .word 0
+	cameraOffset: .word 0
+	one: .word 1
+	nextMilestone: .word 300
+	wowX: .word 0
+	wowY: .word 0
+	wowTimer: .word 0
+	wowColourData: .space 340 # 5*17*4 # if 0
+	omgColourData: .space 340 # if 1
+	yayColourData: .space 340 # if 2
+	wowTextChoice: .word 0
+	pausedColourData: .space 1800 # 30*15*4
+	isPaused: .word 0 # 0 if not paused, 1 if paused
+	
+	# location vars
+	basicPlatformWidth: .word 15
+	basicPlatformHeight: .word 3
+	basicPlatformColorData: .space 180 # store 15*3*4 bytes of mem
+	basicPlatforms: .space 160 # store two words 20 times (up to 20 platforms of x,y coords)
+	
+	gameOverScreenColourData: .space 16384 # 32*32*4
+	
+	# location vars
+	playerSpriteX: .word 30
+	playerSpriteY: .word 20000
+	# property vars
+	playerSpriteWidth: .word 6
+	playerSpriteHeight: .word 6
+	playerSpriteColorData: .space 144 # store 6*6*4 bytes of mem
+	# physics vars
+	playerSpriteVelX: .word 0
+	playerSpriteVelY: .word 0
+	playerSpriteAccX: .word 0
+	playerSpriteAccY: .word 0
+	playerSpriteJump: .word -900
+	
+	# the following are display settings
+	displayAddress:	.word	0x10008000
+	gameMode: .word 0 # 0 == startGame, 1 == playGame, 2 == endGame
+	newline: .asciiz "\n"
+	unitWidth: .word 8
+	unitHeight: .word 8
+	rowWidth: .word 64
+	rowHeight: .word 64
+	
+	# the following are game settings
+	bgColor: .word 0xE4F9F5			#1390C1
+	gravity: .word 100
+	
+	# the following are 'boolean' values to keep track of what keys have been pressed
+	leftKey: .word 0
+	rightKey: .word 0
+	
+	# the following are debug messages
+	debugDone: .asciiz "DONE\n"
+	debugGameOver: .asciiz "Game Over\n"
+	debugCollide: .asciiz "collided\n"
+	debugHit: .asciiz "hit\n"
+	debugMilestone: .asciiz "Milestone Reached!\n"
+	
+	startScreenColourData: .space 16384 # 32*32*4
+	
 .text
 
+.globl time, cameraOffset, one, nextMilestone, wowColourData, omgColourData, yayColourData, wowTextChoice, pausedColourData
+.globl playScreenRun, playScreenInit, playScreenEvents, playScreenUpdate, playScreenDraw
+.globl basicPlatformWidth, basicPlatformHeight, basicPlatformColorData, basicPlatforms
+.globl basicPlatformInit, basicPlatformUpdate, basicPlatformDraw, basicPlatformClear
+.globl gameOverScreenColourData
+.globl gameOverScreenRun, gameOverScreenInit, gameOverScreenEvents
+.globl playerSpriteInit, playerSpriteUpdate, playerSpriteDraw, playerSpriteClear
+.globl playerSpriteX, playerSpriteY
+.globl playerSpriteWidth, playerSpriteHeight, playerSpriteColorData
+.globl playerSpriteVelX, playerSpriteVelY, playerSpriteAccX, playerSpriteAccY, playerSpriteJump
+.globl displayAddress, gameMode, newline, unitWidth, unitHeight, rowWidth, rowHeight
+.globl bgColor, gravity
+.globl leftKey, rightKey
+.globl debugDone, debugGameOver, debugHit, debugMilestone#, debugCollide
+.globl startScreenColourData
+.globl startScreenRun, startScreenInit, startScreenEvents
+.globl drawPixel, generatePlatforms, exit, getWowCoords, drawWow, clearWow, drawScore, drawPaused, clearPaused
 .globl loadData
+
+main:
+	jal loadData
+	j startScreenInit
+	j exit
+
+playScreenRun:
+	j playScreenEvents
+	playScreenEventsDone:
+		j playScreenUpdate
+	playScreenUpdateDone:
+		j playScreenDraw
+	playScreenDrawDone:
+		# sleep for 30ms
+		li $v0, 32
+		li $a0, 30
+		syscall
+		
+		j playScreenRun
+
+playScreenInit:
+	li $v0, 4
+	la $a0, debugDone
+	syscall
+	
+	li $v0, 33
+	li $a0, 50 # pitch
+	li $a1, 1000 # milliseconds duration
+	li $a2, 80 # instrument
+	li $a3, 100 # volume
+	syscall
+	
+	li $v0, 31
+	li $a0, 70 # pitch
+	li $a1, 500 # milliseconds duration
+	li $a2, 80 # instrument
+	li $a3, 100 # volume
+	syscall
+	
+	# add initial platforms
+	la $t0, basicPlatforms
+	li $t1, 30
+	li $t2, 45
+	sw $t1, 0($t0)
+	sw $t2, 4($t0) # add a platform at (30, 45)
+	li $t1, 60
+	li $t2, 4
+	sw $t2, 8($t0)
+	sw $t1, 12($t0) # add a platform at (4, 60)
+	li $t1, 20
+	li $t2, 4
+	sw $t2, 16($t0)
+	sw $t1, 20($t0) # add a platform at (4, 20)
+	li $t1, 10
+	li $t2, 55
+	sw $t2, 24($t0)
+	sw $t1, 28($t0) # add a platform at (55, 10)
+	
+	# fill background
+	addi $t0, $zero, 4095 # store 64*64-1
+	lw $t2, displayAddress # get display addr
+	lw $t3, bgColor # get bgColor
+	loop1: # loop through all bitmap vals
+		li $t1, 4 # store 4
+		mul $t1, $t1, $t0 # mult 4*(t0)
+		add $t1, $t1, $t2 # do displayAddr+4*(t0)
+		sw $t3, 0($t1) # store bgColor in displayAddr+4*(t0)
+		addi $t0, $t0, -1 # (t0)--
+		bltz $t0, loop1done
+		j loop1
+	loop1done:	
+	
+	# store time
+	li $v0, 30
+	syscall
+	sw $a0, time
+	
+	# reset camera offset
+	sw $zero, cameraOffset
+	
+	# reset system vars
+	li $v0, 100
+	sw $v0, gravity
+	li $v0, 300
+	sw $v0, nextMilestone
+	
+	# reset text display vars
+	sw $zero, wowTimer
+	
+	# set paused to 0
+	sw $zero, isPaused
+	
+	jal playerSpriteInit # init player sprite
+	j playScreenRun # run screen
+playScreenEvents:
+	# reset playerSprite physics vars
+	sw $zero, playerSpriteVelX
+	
+	# get keystroke event
+	lw $t0, 0xffff0000
+	beq $t0, 1, eventFound
+	j playScreenEventsDone
+	eventFound:
+		lw $t1, 0xffff0004
+		# check for j
+		beq $t1, 0x6a, jFound
+		j jDone
+		jFound:
+			li $t0, -5 # player vel mag is 5 *********
+			sw $t0, playerSpriteVelX # set player vel to -5
+			j playScreenEventsDone
+		jDone:
+		# check for k
+		beq $t1, 0x6b, kFound
+		j kDone
+		kFound:
+			li $t0, 5 # player vel mag is 5 *********
+			sw $t0, playerSpriteVelX # set player vel to 5
+			j playScreenEventsDone
+		kDone:
+		# check for s
+		beq $t1, 0x73, sFound
+		j sDone
+		sFound:
+			j playScreenInit # reset screen
+		sDone:
+		# check for p
+		beq $t1, 0x70, pFound
+		j pDone
+		pFound:
+			# set isPaused to 0 if 1, 1 if 0
+			lw $t0, isPaused
+			mul $t0, $t0, -1
+			addi $t0, $t0, 1
+			sw $t0, isPaused
+			la $t1, clearPaused # srote addr in t1
+			jalr $s7, $t1 # store current addr in s7, jump to addr in t1
+			j playScreenEventsDone
+		pDone:
+
+playScreenUpdate:
+	lw $t1, isPaused
+	beq $t1, 1, playScreenUpdateDone
+	
+	# check milestone
+	lw $t1, nextMilestone
+	lw $t2, cameraOffset
+	sub $t2, $t1, $t2 # t1 = nextMilestone - cameraOffset
+	bgtz $t2, updateMilestoneDone
+	updateMilestone:
+		li $v0, 4
+		la $a0, debugMilestone
+		syscall
+		# update milestone
+		sll $t1, $t1, 1
+		li $v0, 42
+		li $a1, 200
+		syscall # get choice of text
+		addi $a0, $a0, -100
+		add $t1, $t1, $a0
+		sw $t1, nextMilestone
+		
+		# increase gravity by 200
+		lw $t1, gravity
+		addi $t1, $t1, 100
+		sw $t1, gravity
+		
+		# increase jump force by 900
+		lw $t1, playerSpriteJump
+		addi $t1, $t1, -450
+		sw $t1, playerSpriteJump
+		
+		# set up wow
+		li $t1, 60
+		sw $t1, wowTimer
+		jal getWowCoords
+		sw $a0, wowX
+		sw $a1, wowY
+		
+		li $v0, 42
+		li $a1, 3
+		syscall # get choice of text
+		sw $a0, wowTextChoice
+		li $v0, 1
+		syscall
+		
+		li $v0, 31
+		li $a0, 100 # pitch
+		li $a1, 500 # milliseconds duration
+		li $a2, 0 # instrument
+		li $a3, 100 # volume
+		syscall
+	updateMilestoneDone:
+	
+	la $t1, basicPlatformClear
+	jalr $s7, $t1
+	la $t1, playerSpriteClear
+	jalr $s7, $t1
+	la $t1, playerSpriteUpdate
+	jalr $s7, $t1
+	la $t1, basicPlatformUpdate
+	jalr $s7, $t1
+	j playScreenUpdateDone
+
+playScreenDraw:
+	# draw on-screen notifs
+	lw $t1, wowTimer
+	blez $t1, wowDrawingClear
+	wowDrawing:
+		addi $t1, $t1, -1 # decrement timer
+		sw $t1, wowTimer
+		lw $a0, wowX # load coords
+		lw $a1, wowY
+		jal drawWow # draw
+		j wowDone
+	wowDrawingClear:
+		lw $a0, wowX
+		lw $a1, wowY
+		jal clearWow
+	wowDone:
+	
+	# draw score
+	scoreClear:
+	scoreDraw:
+		la $t1, drawScore
+		jalr $s7, $t1
+	
+	# draw player sprite		
+	la $t1, playerSpriteDraw # srote addr in t1
+	jalr $s7, $t1 # store current addr in s7, jump to addr in t1
+	
+	# draw platforms
+	la $t1, basicPlatformDraw
+	jalr $s7, $t1
+	
+	# draw paused if paused
+	lw $t1, isPaused
+	beqz $t1, drawingPauseTextDone
+	drawingPauseText:
+		la $t1, drawPaused # srote addr in t1
+		jalr $s7, $t1 # store current addr in s7, jump to addr in t1
+	drawingPauseTextDone:
+	
+	j playScreenDrawDone
+
+basicPlatformInit:
+	jr $ra
+basicPlatformUpdate:
+	la $s0, basicPlatforms # get pointer to arr
+	la $s1, basicPlatformColorData # get color data
+	lw $t1, cameraOffset
+	lw $t2, rowHeight
+	
+	li $s2, 20 # store count  **********
+	move $t4, $s0
+	loop12:
+		lw $t6, 0($t4) # get platformX
+		lw $t0, 4($t4) # get platformY
+		beqz $t6, XIsZero3 # v0 is addr to ogX
+		j XIsNotZero3
+		XIsZero3:
+			beqz $t0, loop12Done
+		XIsNotZero3:
+		add $t3, $t0, $t1 # t3 = platformY + cameraOffset
+		sub $t3, $t3, $t2 # t3 = platformY + cameraOffset - screenHeight
+		bltz $t3, resetDone
+		reset:
+			# assign newY
+			li $t3, -3
+			sub $t3, $t3, $t1 # newY = -3 - screenHeight
+			sw $t3, 4($t4) # reset y to newY
+			
+			# get random value for newX
+			li $v0, 42
+			lw $a1, rowWidth # max is rowWidth
+			lw $t3, basicPlatformWidth
+			sub $a1, $a1, $t3
+			syscall
+			
+			# assign newX
+			sw $a0, 0($t4)
+		resetDone:
+		
+		addi $s2, $s2, -1 # decrement count
+		addi $t4, $t4, 8 # increase pointer
+		bgtz $s2, loop12 # if count > 0, repeat loop
+	loop12Done:
+	jr $s7
+basicPlatformClear:
+	la $s0, basicPlatforms # get pointer to arr
+	la $s1, basicPlatformColorData # get color data
+	lw $a2, bgColor
+	
+	li $s2, 20 # store count  **********
+	move $v0, $s0
+	loop11:
+		li $t2, 2 # yOffset starts at 2
+		addi $v1, $v0, 4 # v1 is addr to ogY
+		lw $t4, 0($v0) # t4 stores xLoc
+		lw $t5, 0($v1) # t5 stores yLoc
+		beqz $t4, XIsZero # v0 is addr to ogX
+		j loop9
+		XIsZero:
+			beqz $t5, loop9Done
+		loop9:
+			li $t3, 14 # xOffset starts at 14
+			loop10:
+			
+				# calculate x = ogX + xOffset, y = ogY + yOffset
+				add $a0, $t4, $t3 # store ogX + xOffset in a0
+				add $a1, $t5, $t2 # store ogY + yOffset in a1
+				
+				# draw pixel
+				jal drawPixel
+				
+				addi $t3, $t3, -1
+				bltz $t3, loop10Done
+				j loop10
+			loop10Done:
+			addi $t2, $t2, -1 # decrement yOffset
+			bltz $t2, loop9Done # end loop if yOffset is 0
+			j loop9
+		loop9Done:
+		addi $s2, $s2, -1 # decrement count
+		addi $v0, $v0, 8 # increase pointer
+		bgtz $s2, loop11 # if count > 0, repeat loop
+	loop11Done:
+		
+	jr $s7
+basicPlatformDraw:
+	la $s0, basicPlatforms # get pointer to arr
+	la $s1, basicPlatformColorData # get color data
+	
+	li $s2, 20 # store count  **********
+	move $v0, $s0
+	loop3:
+		li $t2, 2 # yOffset starts at 2
+		addi $v1, $v0, 4 # v1 is addr to ogY
+		lw $t4, 0($v0) # t4 stores xLoc
+		lw $t5, 0($v1) # t5 stores yLoc
+		beqz $t4, XIsZero2 # v0 is addr to ogX
+		j loop4
+		XIsZero2:
+			beqz $t5, loop4Done
+		loop4:
+			li $t3, 14 # xOffset starts at 14
+			loop5:
+			
+				# calculate x = ogX + xOffset, y = ogY + yOffset
+				add $a0, $t4, $t3 # store ogX + xOffset in a0
+				add $a1, $t5, $t2 # store ogY + yOffset in a1
+				
+				# calculate index and get next color info
+				add $t6, $zero, $t3 # store xOffset
+				li $t7, 15
+				mul $t7, $t7, $t2 # t7 = 15*yOffset
+				add $t6, $t6, $t7 # store xOffset + 15*yOffset
+				li $t7, 4
+				mul $t6, $t6, $t7 # store (xOffset + 15*yOffset)*4
+				add $t6, $t6, $s1 # store idx = arrStart + (xOffset + 15*yOffset)*4
+				lw $a2, 0($t6) # get color data from idx and store in a2
+				
+				# draw pixel
+				jal drawPixel
+				
+				addi $t3, $t3, -1
+				bltz $t3, loop5Done
+				j loop5
+			loop5Done:
+			addi $t2, $t2, -1 # decrement yOffset
+			bltz $t2, loop4Done # end loop if yOffset is 0
+			j loop4
+		loop4Done:
+		addi $s2, $s2, -1 # decrement count
+		addi $v0, $v0, 8 # increase pointer
+		bgtz $s2, loop3 # if count > 0, repeat loop
+	loop3Done:
+		
+	jr $s7
+	
+gameOverScreenRun:
+	j gameOverScreenEvents
+	gameOverScreenEventsDone:
+		# sleep for 30ms
+		li $v0, 32
+		li $a0, 30
+		syscall
+		
+		j gameOverScreenRun
+
+gameOverScreenInit:
+	li $v0, 31
+	li $a0, 30 # pitch
+	li $a1, 1000 # milliseconds duration
+	li $a2, 80 # instrument
+	li $a3, 100 # volume
+	syscall
+
+	la $t0, gameOverScreenColourData
+	lw $t1, displayAddress
+	li $t2, 16380
+	loop40:
+		add $t3, $t0, $t2 # color addr
+		add $t4, $t1, $t2 # store addr
+		lw $v0, 0($t3) # get color
+		sw $v0, 0($t4)
+		addi $t2, $t2, -4
+		bltz $t2, loop40done
+		j loop40
+	loop40done:
+	j gameOverScreenRun
+
+gameOverScreenEvents:
+	# get keystroke event
+	lw $t0, 0xffff0000
+	beq $t0, 1, gameOverEventFound
+	j gameOverScreenEventsDone
+	gameOverEventFound:
+		lw $t1, 0xffff0004
+		# check for s
+		beq $t1, 0x73, restartFound
+		j restartDone
+		restartFound:
+			j playScreenInit # reset to play screen
+		restartDone:
+	j gameOverScreenEventsDone
+
+playerSpriteInit:
+	li $v0, 30
+	sw $v0, playerSpriteX
+	li $v0, 20000
+	sw $v0, playerSpriteY
+	sw $zero, playerSpriteVelX
+	sw $zero, playerSpriteVelY
+	sw $zero, playerSpriteAccX
+	sw $zero, playerSpriteAccY
+	li $v0, -900
+	sw $v0, playerSpriteJump
+	jr $ra
+playerSpriteUpdate:
+	# check collisions with platforms
+	lw $t0, playerSpriteVelY
+	bltz $t0, endOfCollisionCheck # don't collide if going upwward
+	
+	la $t0, basicPlatforms
+	li $t1, 20 # store count *********
+	loop8:
+		lw $t2, 0($t0) # get platformX
+		lw $t3, 4($t0) # get platformY
+		beqz $t2, XIsZero4 # v0 is addr to ogX
+		j XIsNotZero4
+		XIsZero4:
+			beqz $t3, endOfCollisionCheck
+		XIsNotZero4:
+		# if (playerVel < 0 && 
+		#     playerX + playerWidth > platformX && playerX < platformX + platformWidth &&
+		#     playerY < platformY && playerY + playerHeight > platformY) 
+		#	j endOfCollisionCheckPositive
+		# if !(playerVel > 0 || 
+		#      playerX + playerWidth < platformX || playerX > platformX + platformWidth ||
+		#      playerY > platformY || playerY + playerHeight < platformY) 
+		#	j endOfCollisionCheckPositive
+		
+		li $v0, 0 # store result
+		
+		# check vel
+		lw $t2, playerSpriteVelY
+		or $v0, $v0, $t2 # if playerVelY < 0, make v0 < 0
+		sw $zero, playerSpriteVelY
+		
+		# check horizontal
+		lw $t2, 0($t0) # get platformX
+		lw $t3, basicPlatformWidth # get platformWidth
+		lw $t4, playerSpriteWidth # get playerWidth
+		lw $t5, playerSpriteX # get playerX
+		
+		add $t6, $t5, $t4 # playerX + playerWidth
+		sub $t6, $t6, $t2 # playerX + playerWidth - platformX
+		addi $t6, $t6, -1
+		or $v0, $v0, $t6 # if (playerX + playerWidth - platformX) < 0, make v0 < 0
+		
+		add $t6, $t2, $t3 # platformX + platformWidth
+		sub $t6, $t6, $t5 # platformX + platformWidth - platformX
+		addi $t6, $t6, -1
+		or $v0, $v0, $t6 # if (platformX + platformWidth - platformX) < 0m make v0 < 0
+		
+		# check vertical
+		lw $t2, 4($t0) # get platformY
+		lw $t3, basicPlatformHeight # get platformHeight
+		lw $t4, playerSpriteHeight # get playerHeight
+		lw $t5, playerSpriteY # get playerY
+		div $t5, $t5, 1000
+		
+		sub $t6, $t2, $t5 # platformY - playerY
+		or $v0, $v0, $t6 # if platformY - player Y < 0 == platformY < playerY, make v0 < 0
+		
+		add $t6, $t5, $t4 # playerY + playerHeight
+		sub $t6, $t6, $t2 # if playerY + playerHeight - platformY < 0 == playerY + playerHeight < platformY, make v0 < 0
+		or $v0, $v0, $t6
+		
+		bgtz $v0, endOfCollisionCheckPositive
+		
+		addi $t0, $t0, 8 # get next point
+		addi $t1, $t1, -1 # decrement count
+		beqz $t1, endOfCollisionCheck
+		j loop8
+	loop8done:
+	endOfCollisionCheckPositive:
+		lw $t0, playerSpriteAccY
+		lw $t1, playerSpriteJump
+		add $t0, $zero, $t1 # make player acc -5 *********
+		sw $t0, playerSpriteAccY
+		
+		li $v0, 31
+		li $a0, 70 # pitch
+		li $a1, 750 # milliseconds duration
+		li $a2, 120 # instrument
+		li $a3, 100 # volume
+		syscall
+	endOfCollisionCheck:
+	
+	# do physics for Y
+	lw $t0, gravity # get gravity
+	lw $t1, playerSpriteAccY
+	add $t1, $t1, $t0 # t1 = ogAccY + gravity
+	sw $t1, playerSpriteAccY
+	lw $t0, playerSpriteVelY # get velocity
+	add $t0, $t0, $t1 # t0 = ogVelY + accY  ### check for terminal velocity
+	sw $t0, playerSpriteVelY
+	lw $t1, playerSpriteY
+	add $t1, $t1, $t0 # t1 = ogPosY + velY
+	move $a1, $t1 # store posY in a1
+	
+	# scroll if posY < 0.4*height
+	move $t0, $a1
+	div $t0, $t0, 1000
+	addi $t0, $t0, -15 # check how far player is above 0.2*rowHeight
+	lw $t1, cameraOffset
+	add $t0, $t0, $t1
+	bgtz $t0, scrollDone # if lower than 0.4*rowHeight, skip scroll
+	scroll:
+		sub $t1, $t1, $t0
+		sw $t1, cameraOffset
+	scrollDone:
+	
+	# do physics for X
+	lw $t0, playerSpriteVelX # get velocity
+	lw $t1, playerSpriteX # get ogPosX
+	add $t1, $t0, $t1 # t1 = ogPosX + velX
+	move $a0, $t1 # store posX in a0
+	
+	# horizontal wrapping
+	lw $t0, rowWidth # get width
+	bge $a0, $t0, pwrapG
+	j pwrapGDone
+	pwrapG:
+		sub $a0, $a0, $t0 # do x = x - width
+	pwrapGDone:
+	bltz $a0, pwrapL
+	j pwrapLDone
+	pwrapL:
+		add $a0, $a0, $t0 # do x = x + width
+	pwrapLDone:
+	sw $a0, playerSpriteX # store posX
+	sw $a1, playerSpriteY # store posY
+	
+	# check for hitting bottom
+	lw $t0, playerSpriteY # get posY (top of sprite)
+	div $t0, $t0, 1000
+	lw $t1, playerSpriteHeight # get player height
+	add $t0, $t0, $t1 # t0 now is bottom of sprite
+	lw $t1, rowHeight # get screen height
+	sub $t0, $t0, $t1 # playerY - screenHeight
+	lw $t1, cameraOffset
+	add $t0, $t0, $t1 # playerY - screenHeight + cameraOffset
+	bgtz $t0, gameOver
+	j gameOverDone
+	gameOver:
+		# sleep for 500ms
+		li $v0, 32
+		li $a0, 100
+		syscall
+			
+		j gameOverScreenInit
+	gameOverDone:
+	
+	jr $s7
+
+playerSpriteClear:
+	lw $t1, playerSpriteX
+	lw $t2, playerSpriteY
+	lw $t3, playerSpriteWidth
+	lw $t4, playerSpriteHeight
+	
+	# loop to clear previous drawing
+	LOOPINIT3:
+		lw $t7, playerSpriteHeight
+		addi $t7, $t7, -1
+		# store bgColor
+		lw $a2, bgColor # a2 = bgColor
+	WHILE3:
+		bltz $t7, LOOP3DONE
+		LOOPINIT4:
+			lw $v1, playerSpriteWidth
+			addi $v1, $v1, -1
+		WHILE4:			
+			bltz $v1, LOOP4DONE
+			lw $t1, playerSpriteX
+			
+			# calculate x,y
+			move $s0, $t1 # s0 = playerX
+			add $a0, $s0, $v1 # a0 = playerX + xOffset
+			move $s1, $t2 # s1 = playerY
+			div $s1, $s1, 1000
+			add $a1, $s1, $t7 # a1 = playerY + yOffset
+			
+			# draw pixel
+			jal drawPixel
+			
+			addi $v1, $v1, -1
+			j WHILE4
+		LOOP4DONE:
+		addi $t7, $t7, -1
+		j WHILE3
+	LOOP3DONE:
+	jr $s7
+	
+playerSpriteDraw:	
+	lw $t1, playerSpriteX
+	lw $t2, playerSpriteY
+	lw $t3, playerSpriteWidth
+	lw $t4, playerSpriteHeight
+	
+	LOOPINIT1:
+		lw $t7, playerSpriteHeight
+		addi $t7, $t7, -1
+	WHILE1:
+		bltz $t7, LOOP1DONE
+		LOOPINIT2:
+			lw $v1, playerSpriteWidth
+			addi $v1, $v1, -1
+		WHILE2:			
+			bltz $v1, LOOP2DONE
+			la $t0, playerSpriteColorData
+			lw $t1, playerSpriteX
+			# find index in color data array
+			li $t5, 0				# calculate index
+			add $t5, $v1, $t5
+			mult $t3, $t7
+			mflo $t6
+			add $t5, $t5, $t6			# t5 contains index	
+			li $t6, 4
+			mult $t5, $t6
+			mflo $t5
+			add $t0, $t0, $t5			# find address using index
+			lw $a2, 0($t0)
+			
+			# calculate x,y
+			move $s0, $t1
+			add $a0, $s0, $v1
+			move $s1, $t2
+			div $s1, $s1, 1000
+			add $a1, $s1, $t7
+			
+			# draw pixel
+			jal drawPixel
+			
+			addi $v1, $v1, -1
+			j WHILE2
+		LOOP2DONE:
+		addi $t7, $t7, -1
+		j WHILE1
+	LOOP1DONE:
+	jr $s7
+	
+startScreenRun:
+	j startScreenEvents
+	startScreenEventsDone:
+		# sleep for 30ms
+		li $v0, 32
+		li $a0, 30
+		syscall
+		
+		j startScreenRun
+		
+startScreenInit:
+	la $t0, startScreenColourData
+	lw $t1, displayAddress
+	li $t2, 16380
+	loop20:
+		add $t3, $t0, $t2 # color addr
+		add $t4, $t1, $t2 # store addr
+		lw $v0, 0($t3) # get color
+		sw $v0, 0($t4)
+		addi $t2, $t2, -4
+		bltz $t2, loop20done
+		j loop20
+	loop20done:
+	j startScreenRun
+startScreenEvents:
+	# get keystroke event
+	lw $t0, 0xffff0000
+	beq $t0, 1, startEventFound
+	j startScreenEventsDone
+	startEventFound:
+		lw $t1, 0xffff0004
+		# check for s
+		beq $t1, 0x73, gameStartFound
+		j gameStartDone
+		gameStartFound:
+			j playScreenInit # reset to play screen
+		gameStartDone:
+	j startScreenEventsDone
+
+drawPixel:
+	# assume $a0-2 stores x, y, and color respectively
+	# uses t0-1
+	# returns None
+	
+	# add cameraOffset
+	lw $t0, cameraOffset
+	add $a1, $a1, $t0
+	
+	# horizontal wrapping
+	lw $t0, rowWidth # get width
+	bge $a0, $t0, wrapG
+	j wrapGDone
+	wrapG:
+		jr $ra
+	wrapGDone:
+	bltz $a0, wrapL
+	j wrapLDone
+	wrapL:
+		jr $ra
+	wrapLDone:
+	
+	# do coloring
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	li $t1, 4 # store 4
+	mul $t1, $t1, $a0 # multiply x*4
+	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
+	sw $a2, 0($t0) # color
+	jr $ra
+	
+generatePlatforms:
+	jr $s7
+	
+drawWow:
+	# assumes a0 contains X, a1 contains Y
+	# uses t0-4
+	# calculate addr
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	li $t1, 4 # store 4
+	mul $t1, $t1, $a0 # multiply x*4
+	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
+	
+	# start drawing
+	lw $t1, wowTextChoice
+	li $t3, 0
+	beq $t1, $t3, setTextToWow
+	addi $t3, $t3, 1
+	beq $t1, $t3, setTextToOmg
+	addi $t3, $t3, 1
+	beq $t1, $t3, setTextToYay
+	setTextToWow:
+		la $t2, wowColourData
+		j setTextDone
+	setTextToOmg:
+		la $t2, omgColourData
+		j setTextDone
+	setTextToYay:
+		la $t2, yayColourData
+		j setTextDone
+	setTextDone:
+	
+	li $t1, 0 # store colourDataOffset
+	li $t3, 0 # store yOffset
+	wowDrawY:
+		li $t4, 0 # store xOffset
+		wowDrawX:
+			add $t5, $t2, $t1 # calc colourData + colourDataOffset
+			lw $t5, 0($t5) # get colour
+			lw $t6, rowWidth
+			mul $t6, $t6, $t3 # rowWidth*yOffset
+			add $t6, $t6, $t4 # rowWidth*yOffset + xOffset
+			mul $t6, $t6, 4 # (rowWidth*yOffset + xOffset)*4
+			add $t6, $t6, $t0 # topLeft + (rowWidth*yOffset + xOffset)*4
+			sw $t5, 0($t6) # store color
+			
+			addi $t1, $t1, 4 # increment colourDataOffset by 4
+			addi $t4, $t4, 1 # increment xOffset
+			bge $t4, 17, wowDrawXDone # terminate loop if xOffset >= 17
+			j wowDrawX
+		wowDrawXDone:
+		addi $t3, $t3, 1 # increment yOffset
+		bge $t3, 5, wowDrawYDone # terminate loop if yOffset >= 5
+		j wowDrawY
+	wowDrawYDone:
+	jr $ra
+	
+clearWow:
+	# assumes a0 contains X, a1 contains Y
+	# uses t0-4
+	# calculate addr
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	li $t1, 4 # store 4
+	mul $t1, $t1, $a0 # multiply x*4
+	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
+	
+	# start drawing
+	li $t3, 0 # store yOffset
+	lw $t5, bgColor
+	wowDrawY2:
+		li $t4, 0 # store xOffset
+		wowDrawX2:
+			lw $t6, rowWidth
+			mul $t6, $t6, $t3 # rowWidth*yOffset
+			add $t6, $t6, $t4 # rowWidth*yOffset + xOffset
+			mul $t6, $t6, 4 # (rowWidth*yOffset + xOffset)*4
+			add $t6, $t6, $t0 # topLeft + (rowWidth*yOffset + xOffset)*4
+			sw $t5, 0($t6) # store color
+			addi $t4, $t4, 1 # increment xOffset
+			bge $t4, 17, wowDrawXDone2 # terminate loop if xOffset >= 17
+			j wowDrawX2
+		wowDrawXDone2:
+		addi $t3, $t3, 1 # increment yOffset
+		bge $t3, 5, wowDrawYDone2 # terminate loop if yOffset >= 5
+		j wowDrawY2
+	wowDrawYDone2:
+	jr $ra
+
+getWowCoords:
+	# get random x,y
+	li $v0, 42
+	li $a1, 32
+	syscall # get random X in a0
+	addi $t1, $a0, 15 # center random X and store in t1
+	li $v0, 42
+	li $a1, 32
+	syscall # get random Y in a0
+	addi $a1, $a0, 15 # center random Y and store in a1
+	move $a0, $t1 # store random X in a0
+	jr $ra
+	
+drawScore:	
+	lw $a0, rowWidth # store topLeftX
+	addi $a0, $a0, -5
+	li $a1, 2 # store topLeftY
+	
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	addi $t0, $t0, 4
+	
+	lw $t1, cameraOffset # score
+	scoreDrawStart:
+		li $t2, 10
+		div $t1, $t2
+		mfhi $t2 # store digit = score % 10 in t2
+		mflo $t1 # store newScore = score // 10 in t1
+		
+		# calculate topLeft coord
+		mul $t3, $a0, 4
+		add $a1, $t0, $t3 # add x*4 +rowWidth*y*4 + start of arr, store in a1
+		
+		# draw digit
+		move $t3, $zero
+		beq $t2, $t3, draw0
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw1
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw2
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw3
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw4
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw5
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw6
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw7
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw8
+		addi $t3, $t3, 1
+		beq $t2, $t3, draw9
+		drawDigitDone:
+		
+		addi $a0, $a0, -4 # increment x by 5
+		blez $t1, scoreDrawEnd
+		j scoreDrawStart
+	scoreDrawEnd:
+	jr $s7
+
+draw0:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0x40514e
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw1:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 8($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 256($a1)
+	li $t4, 0x40514e
+	sw $t4, 260($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 264($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0x40514e
+	sw $t4, 772($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw2:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0x40514e
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw3:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw4:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 1024($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw5:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw6:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0x40514e
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw7:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 512($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 1024($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw8:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0x40514e
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+draw9:
+	li $t4, 0x40514e
+	sw $t4, 0($a1)
+	li $t4, 0x40514e
+	sw $t4, 4($a1)
+	li $t4, 0x40514e
+	sw $t4, 8($a1)
+	li $t4, 0x40514e
+	sw $t4, 256($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 260($a1)
+	li $t4, 0x40514e
+	sw $t4, 264($a1)
+	li $t4, 0x40514e
+	sw $t4, 512($a1)
+	li $t4, 0x40514e
+	sw $t4, 516($a1)
+	li $t4, 0x40514e
+	sw $t4, 520($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 768($a1)
+	li $t4, 0xe4f9f5
+	sw $t4, 772($a1)
+	li $t4, 0x40514e
+	sw $t4, 776($a1)
+	li $t4, 0x40514e
+	sw $t4, 1024($a1)
+	li $t4, 0x40514e
+	sw $t4, 1028($a1)
+	li $t4, 0x40514e
+	sw $t4, 1032($a1)
+	j drawDigitDone
+
+drawPaused:
+	li $a0, 17
+	li $a1, 10
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	li $t1, 4 # store 4
+	mul $t1, $t1, $a0 # multiply x*4
+	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
+	
+	la $t1, pausedColourData
+	li $a1, 15
+	loop31:
+		li $a0, 30
+		loop32:
+			lw $t2, 0($t1)
+			sw $t2, 0($t0)			
+			
+			addi $t1, $t1, 4
+			addi $t0, $t0, 4
+			addi $a0, $a0, -1
+			beqz $a0, loop32Done
+			j loop32
+		loop32Done:
+		addi $t0, $t0, 136 # increment displayAddr by 4*64 - 4
+		addi $a1, $a1, -1
+		beqz $a1, loop31Done
+		j loop31
+	loop31Done:
+	
+	jr $s7
+	
+clearPaused:
+	li $a0, 17
+	li $a1, 10
+	lw $t1, rowWidth # get rowWidth
+	mul $t1, $t1, $a1 # multiply rowWidth*y
+	li $t0, 4 # store 4
+	mul $t1, $t1, $t0 # multiply rowWidth*y*4
+	lw $t0, displayAddress # get display addr
+	add $t0, $t0, $t1 # add rowWidth*y*4 + start of arr
+	li $t1, 4 # store 4
+	mul $t1, $t1, $a0 # multiply x*4
+	add $t0, $t0, $t1 # add x*4 +rowWidth*y*4 + start of arr
+	
+	li $a1, 15
+	loop33:
+		li $a0, 30
+		loop34:
+			lw $t2, bgColor
+			sw $t2, 0($t0)			
+			
+			addi $t0, $t0, 4
+			addi $a0, $a0, -1
+			beqz $a0, loop34Done
+			j loop34
+		loop34Done:
+		addi $t0, $t0, 136 # increment displayAddr by 4*64 - 4
+		addi $a1, $a1, -1
+		beqz $a1, loop33Done
+		j loop33
+	loop33Done:
+	
+	jr $s7
+
+exit:
+	li $v0, 10 # terminate the program gracefully
+	syscall
 
 loadData:
 	# get colors we will use

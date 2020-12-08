@@ -40,12 +40,13 @@ basicPlatformUpdate:
 			# get random value for newX
 			li $v0, 42
 			lw $a1, rowWidth # max is rowWidth
+			lw $t3, basicPlatformWidth
+			sub $a1, $a1, $t3
 			syscall
 			
 			# assign newX
 			sw $a0, 0($t4)
 		resetDone:
-		
 		
 		addi $s2, $s2, -1 # decrement count
 		addi $t4, $t4, 8 # increase pointer
