@@ -11,7 +11,7 @@ main:
 	sw $t2, 4($t0)	 # paint the second unit on the first row green. Why $t0+4?
 	sw $t3, 256($t0) # paint the first unit on the second row blue. Why +128?
 	jal loadData
-	j playerSpriteUpdate
+	j playScreenInit
 	
 	j exit
 	
